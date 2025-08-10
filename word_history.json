@@ -1,0 +1,66 @@
+{
+  "used_words": [
+    "cautious",
+    "generous",
+    "precise",
+    "ambitious",
+    "convenient",
+    "reluctant",
+    "scattered",
+    "genuine",
+    "flexible",
+    "essential"
+  ],
+  "word_history": [
+    {
+      "word": "ambitious",
+      "date": "2025-08-10T15:23:21.405283",
+      "attempt": 1
+    },
+    {
+      "word": "essential",
+      "date": "2025-08-10T15:23:21.405316",
+      "attempt": 1
+    },
+    {
+      "word": "reluctant",
+      "date": "2025-08-10T15:23:21.405325",
+      "attempt": 1
+    },
+    {
+      "word": "genuine",
+      "date": "2025-08-10T15:23:21.405331",
+      "attempt": 1
+    },
+    {
+      "word": "convenient",
+      "date": "2025-08-10T15:23:21.405337",
+      "attempt": 1
+    },
+    {
+      "word": "cautious",
+      "date": "2025-08-10T15:32:45.431884",
+      "attempt": 1
+    },
+    {
+      "word": "generous",
+      "date": "2025-08-10T15:32:45.431924",
+      "attempt": 1
+    },
+    {
+      "word": "precise",
+      "date": "2025-08-10T15:32:45.431937",
+      "attempt": 1
+    },
+    {
+      "word": "scattered",
+      "date": "2025-08-10T15:32:45.431946",
+      "attempt": 1
+    },
+    {
+      "word": "flexible",
+      "date": "2025-08-10T15:32:45.431954",
+      "attempt": 1
+    }
+  ]
+}
