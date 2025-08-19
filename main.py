@@ -25,6 +25,7 @@ CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 DAILY_TIME = os.getenv('DAILY_TIME', '13:38')  # Default time is 13:38
 DEBUG_MODE = os.getenv('DEBUG_MODE', 'false').lower() == 'true'  # Debug mode for testing
+MODEL = os.getenv('MODEL')
 
 # Validate required environment variables
 if not all([BOT_TOKEN, CHAT_ID, OPENROUTER_API_KEY]):
@@ -61,6 +62,11 @@ class VocabularyBot:
         
     def send_message(self, chat_id, text, parse_mode='Markdown'):
         """Send message to Telegram chat with error handling"""
+        # Validate that text is not empty
+        if not text or not text.strip():
+            logger.error("Cannot send empty message")
+            return False
+            
         url = f"{API_URL}/sendMessage"
         payload = {
             'chat_id': chat_id,
@@ -171,7 +177,7 @@ class VocabularyBot:
         
         for attempt in range(max_retries):
             data = {
-                "model": "anthropic/claude-3.5-sonnet",
+                "model": f"{MODEL}",
                 "messages": [
                     {
                         "role": "system",
@@ -196,7 +202,22 @@ class VocabularyBot:
                 response.raise_for_status()
                 
                 res_json = response.json()
+                
+                # Validate response structure
+                if 'choices' not in res_json or not res_json['choices']:
+                    logger.error(f"Invalid OpenRouter response structure: {res_json}")
+                    continue
+                    
+                if 'message' not in res_json['choices'][0] or 'content' not in res_json['choices'][0]['message']:
+                    logger.error(f"Missing content in OpenRouter response: {res_json}")
+                    continue
+                    
                 content = res_json['choices'][0]['message']['content']
+                
+                # Validate content is not empty
+                if not content or not content.strip():
+                    logger.error("OpenRouter returned empty content")
+                    continue
                 
                 if avoid_repetition:
                     # แยกคำออกมาจาก response
@@ -270,7 +291,7 @@ class VocabularyBot:
                 
                 # Get and send vocabulary
                 words = self.get_vocabulary_from_openrouter()
-                if words:
+                if words and words.strip():
                     formatted_message = f"📚 *คำศัพท์วันนี้*\n\n{words}\n\n💡 *ทำการบ้าน:* ลองเขียนประโยคด้วยคำเหล่านี้ดูนะครับ!\n\n🤖 พิมพ์ 'help' เพื่อดูคำสั่งเพิ่มเติม"
                     self.send_message(chat_id, formatted_message)
                 else:
@@ -311,7 +332,7 @@ class VocabularyBot:
                 logger.info(f"🆕 Sending new vocabulary to user {chat_id}")
                 self.send_message(chat_id, "กำลังหาคำศัพท์ใหม่ให้... ⏳")
                 words = self.get_vocabulary_from_openrouter()
-                if words:
+                if words and words.strip():
                     formatted_message = f"📚 *คำศัพท์ใหม่*\n\n{words}\n\n💡 ลองฝึกใช้คำเหล่านี้ดูนะครับ!"
                     self.send_message(chat_id, formatted_message)
                 else:

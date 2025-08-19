@@ -1,14 +1,22 @@
 {
   "used_words": [
-    "cautious",
-    "generous",
-    "precise",
-    "ambitious",
-    "convenient",
+    "accommodate",
     "reluctant",
-    "scattered",
     "genuine",
     "flexible",
+    "generous",
+    "cautious",
+    "consequential",
+    "cooperate",
+    "compromise",
+    "beneficial",
+    "scattered",
+    "precise",
+    "dilemma",
+    "ambitious",
+    "determine",
+    "convenient",
+    "influence",
     "essential"
   ],
   "word_history": [
@@ -60,6 +68,46 @@
     {
       "word": "flexible",
       "date": "2025-08-10T15:32:45.431954",
+      "attempt": 1
+    },
+    {
+      "word": "cooperate",
+      "date": "2025-08-19T22:43:35.176656",
+      "attempt": 1
+    },
+    {
+      "word": "accommodate",
+      "date": "2025-08-19T22:43:35.176656",
+      "attempt": 1
+    },
+    {
+      "word": "dilemma",
+      "date": "2025-08-19T22:43:35.176656",
+      "attempt": 1
+    },
+    {
+      "word": "consequential",
+      "date": "2025-08-19T22:45:48.435372",
+      "attempt": 1
+    },
+    {
+      "word": "beneficial",
+      "date": "2025-08-19T22:45:48.436479",
+      "attempt": 1
+    },
+    {
+      "word": "determine",
+      "date": "2025-08-19T22:45:48.436479",
+      "attempt": 1
+    },
+    {
+      "word": "compromise",
+      "date": "2025-08-19T22:45:48.436479",
+      "attempt": 1
+    },
+    {
+      "word": "influence",
+      "date": "2025-08-19T22:45:48.436479",
       "attempt": 1
     }
   ]
