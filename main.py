@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
-DAILY_TIME = os.getenv('DAILY_TIME', '13:38')  # Default time is 13:38
+DAILY_TIME = os.getenv('DAILY_TIME', '15:00')  # Default time is 15:00 (3 PM)
+GRAMMAR_TIME = os.getenv('GRAMMAR_TIME', '08:00')  # Default time is 08:00 (8 AM)
 DEBUG_MODE = os.getenv('DEBUG_MODE', 'false').lower() == 'true'  # Debug mode for testing
 MODEL = os.getenv('MODEL')
 
@@ -33,7 +34,8 @@ if not all([BOT_TOKEN, CHAT_ID, OPENROUTER_API_KEY]):
     logger.error("- TELEGRAM_BOT_TOKEN")
     logger.error("- TELEGRAM_CHAT_ID") 
     logger.error("- OPENROUTER_API_KEY")
-    logger.error("- DAILY_TIME (optional, defaults to 13:38)")
+    logger.error("- DAILY_TIME (optional, defaults to 15:00)")
+    logger.error("- GRAMMAR_TIME (optional, defaults to 08:00)")
     logger.error("- DEBUG_MODE (optional, set to 'true' for testing)")
     exit(1)
 
@@ -163,7 +165,7 @@ class VocabularyBot:
         if avoid_repetition and recent_used_words:
             avoid_words_text = f"\n\nIMPORTANT: Please avoid using these previously used words: {', '.join(recent_used_words)}"
         
-        # เพิ่มคำแนะนำให้หลีกเลี่ยงคำซ้ำ
+        # เพิ่มำแนะนำให้หลีกเลี่ยงคำซ้ำ
         system_prompt = """You are a helpful English vocabulary teacher. Provide exactly 5 English vocabulary words with clear, simple Thai explanations. 
         
         Format each word clearly with:
@@ -260,6 +262,84 @@ class VocabularyBot:
         
         return None
 
+    def get_grammar_from_openrouter(self, max_retries=3):
+        """Get English grammar lesson from OpenRouter API"""
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        
+        system_prompt = """You are an experienced English grammar teacher. Provide one clear and practical English grammar lesson with:
+        
+        1. Grammar topic/rule name in bold
+        2. Simple explanation in Thai
+        3. 2-3 clear examples with Thai translations
+        4. Common mistakes to avoid
+        
+        Choose intermediate-level grammar topics that are useful in daily communication. Make the explanation easy to understand and practical."""
+        
+        user_prompt = "Give me one English grammar lesson explained clearly in Thai. Include the grammar rule, examples, and common mistakes. Format it nicely for easy reading."
+        
+        for attempt in range(max_retries):
+            data = {
+                "model": f"{MODEL}",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": user_prompt
+                    }
+                ],
+                "max_tokens": 600,
+                "temperature": 0.7 + (attempt * 0.1)  # เพิ่ม randomness ในครั้งต่อไป
+            }
+            
+            try:
+                response = self.session.post(
+                    url, 
+                    headers=headers, 
+                    data=json.dumps(data),
+                    timeout=(10, 30)
+                )
+                response.raise_for_status()
+                
+                res_json = response.json()
+                
+                # Validate response structure
+                if 'choices' not in res_json or not res_json['choices']:
+                    logger.error(f"Invalid OpenRouter response structure: {res_json}")
+                    continue
+                    
+                if 'message' not in res_json['choices'][0] or 'content' not in res_json['choices'][0]['message']:
+                    logger.error(f"Missing content in OpenRouter response: {res_json}")
+                    continue
+                    
+                content = res_json['choices'][0]['message']['content']
+                
+                # Validate content is not empty
+                if not content or not content.strip():
+                    logger.error("OpenRouter returned empty content")
+                    continue
+                
+                logger.info(f"✅ Generated grammar lesson successfully")
+                return content.strip()
+                
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Network error calling OpenRouter (attempt {attempt + 1}): {e}")
+                if attempt == max_retries - 1:
+                    return None
+                time.sleep(2)  # รอ 2 วินาทีก่อนลองใหม่
+            except (KeyError, IndexError, json.JSONDecodeError) as e:
+                logger.error(f"Error parsing OpenRouter response (attempt {attempt + 1}): {e}")
+                if attempt == max_retries - 1:
+                    return None
+        
+        return None
+
     def handle_user_message(self, chat_id, text):
         global used_words, word_history
 
@@ -315,6 +395,7 @@ class VocabularyBot:
 • `help` - แสดงคำสั่งนี้  
 • `reset` - เริ่มใหม่
 • `new` - ขอคำศัพท์ใหม่
+• `grammar` - ขอบทเรียนไวยากรณ์
 • `stats` - ดูสถิติคำที่เรียนแล้ว
 • `clear` - ลบประวัติคำทั้งหมด
 
@@ -337,6 +418,16 @@ class VocabularyBot:
                     self.send_message(chat_id, formatted_message)
                 else:
                     self.send_message(chat_id, "ขออภัยครับ ตอนนี้ไม่สามารถดึงคำศัพท์ได้")
+                    
+            elif text_lower in ['grammar', 'ไวยากรณ์', 'แกรมมาร์']:
+                logger.info(f"📖 Sending grammar lesson to user {chat_id}")
+                self.send_message(chat_id, "กำลังหาบทเรียนไวยากรณ์ให้... ⏳")
+                grammar_lesson = self.get_grammar_from_openrouter()
+                if grammar_lesson and grammar_lesson.strip():
+                    formatted_message = f"📖 *บทเรียนไวยากรณ์*\n\n{grammar_lesson}\n\n💡 ลองนำไวยากรณ์นี้ไปใช้ในการเขียนประโยคดูนะครับ!"
+                    self.send_message(chat_id, formatted_message)
+                else:
+                    self.send_message(chat_id, "ขออภัยครับ ตอนนี้ไม่สามารถดึงบทเรียนไวยากรณ์ได้")
                     
             elif text_lower in ['stats', 'สถิติ', 'ข้อมูล']:
                 logger.info(f"📊 Sending statistics to user {chat_id}")
@@ -387,6 +478,27 @@ class VocabularyBot:
             logger.error("❌ Failed to send daily vocabulary prompt")
         else:
             logger.info("📤 Daily vocabulary prompt sent successfully")
+
+    def daily_grammar_job(self):
+        """Daily scheduled job to send grammar lesson"""
+        logger.info("📚 Starting daily grammar job")
+        
+        # Get and send grammar lesson
+        grammar_lesson = self.get_grammar_from_openrouter()
+        if grammar_lesson and grammar_lesson.strip():
+            formatted_message = f"🌅 *สวัสดีตอนเช้าครับ!*\n\n📖 *บทเรียนไวยากรณ์วันนี้*\n\n{grammar_lesson}\n\n💡 *เคล็ดลับ:* ลองนำไวยากรณ์นี้ไปใช้ในการเขียนประโยคดูนะครับ!\n\n🤖 พิมพ์ 'help' เพื่อดูคำสั่งเพิ่มเติม"
+            
+            success = self.send_message(CHAT_ID, formatted_message)
+            
+            if not success:
+                logger.error("❌ Failed to send daily grammar lesson")
+            else:
+                logger.info("📤 Daily grammar lesson sent successfully")
+        else:
+            logger.error("❌ Failed to get grammar lesson from OpenRouter")
+            # Send fallback message
+            fallback_message = "🌅 *สวัสดีตอนเช้าครับ!*\n\nขออภัยครับ ตอนนี้ไม่สามารถดึงบทเรียนไวยากรณ์ได้ กรุณาลองใหม่อีกครั้งหรือพิมพ์ 'grammar' เพื่อขอบทเรียนใหม่"
+            self.send_message(CHAT_ID, fallback_message)
 
     def start_continuous_listener(self):
         """Start continuous message listener (runs in background)"""
@@ -480,3 +592,16 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+help_text = """🤖 *คำสั่งที่ใช้ได้:*
+
+• `พร้อม` - เริ่มเรียนคำศัพท์
+• `help` - แสดงคำสั่งนี้  
+• `reset` - เริ่มใหม่
+• `new` - ขอคำศัพท์ใหม่
+• `grammar` - ขอบทเรียนไวยากรณ์
+• `stats` - ดูสถิติคำที่เรียนแล้ว
+• `clear` - ลบประวัติคำทั้งหมด
+
+📝 *วิธีใช้:* 
+- รอข้อความเตือนตอน 3 ทุ่ม แล้วตอบ 'พร้อม' เพื่อรับคำศัพท์ประจำวัน"""
