@@ -5,6 +5,7 @@ import schedule
 import time
 import logging
 import threading
+import sys
 from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()
@@ -13,10 +14,16 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('bot.log'),
+        logging.FileHandler('bot.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
+
+# Set console output encoding to UTF-8 for Windows
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 logger = logging.getLogger(__name__)
 
 # Configuration - Use environment variables for security
@@ -558,6 +565,7 @@ def main():
     # For testing - run every 2 minutes
     # logger.info("🧪 TESTING MODE: Running every 2 minutes")
     # schedule.every(2).minutes.do(bot.daily_vocabulary_job)
+    schedule.every().day.at(GRAMMAR_TIME).do(bot.daily_grammar_job)
     schedule.every().day.at(DAILY_TIME).do(bot.daily_vocabulary_job)
     
     logger.info("Bot started successfully, waiting for scheduled time...")
