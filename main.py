@@ -60,6 +60,20 @@ last_update_id = None
 used_words = set()  # เก็บคำที่ใช้ไปแล้ว
 word_history = []   # เก็บประวัติคำที่ใช้พร้อมวันที่
 
+# Help text for user commands
+help_text = """🤖 *คำสั่งที่ใช้ได้:*
+
+• `พร้อม` - เริ่มเรียนคำศัพท์
+• `help` - แสดงคำสั่งนี้  
+• `reset` - เริ่มใหม่
+• `new` - ขอคำศัพท์ใหม่
+• `grammar` - ขอบทเรียนไวยากรณ์
+• `stats` - ดูสถิติคำที่เรียนแล้ว
+• `clear` - ลบประวัติคำทั้งหมด
+
+📝 *วิธีใช้:* 
+- รอข้อความเตือนตอน 3 ทุ่ม แล้วตอบ 'พร้อม' เพื่อรับคำศัพท์ประจำวัน"""
+
 class VocabularyBot:
     def __init__(self):
         self.session = requests.Session()
@@ -367,6 +381,46 @@ class VocabularyBot:
         
         logger.info(f"Processing message from {chat_id}: '{text_lower}'")
         
+        # Handle commands that don't require 'ready' state first
+        if text_lower in ['help', 'ช่วย', 'คำสั่ง']:
+            logger.info(f"📋 Sending help to user {chat_id}")
+            self.send_message(chat_id, help_text)
+            return
+            
+        elif text_lower in ['new', 'ใหม่', 'คำใหม่']:
+            logger.info(f"🆕 Sending new vocabulary to user {chat_id}")
+            self.send_message(chat_id, "กำลังหาคำศัพท์ใหม่ให้... ⏳")
+            logger.info("📞 Calling get_vocabulary_from_openrouter()...")
+            words = self.get_vocabulary_from_openrouter()
+            logger.info(f"📝 Received words from OpenRouter: {words}")
+            if words and words.strip():
+                formatted_message = f"📚 *คำศัพท์ใหม่*\n\n{words}\n\n💡 ลองฝึกใช้คำเหล่านี้ดูนะครับ!"
+                logger.info(f"✅ Sending formatted vocabulary message")
+                self.send_message(chat_id, formatted_message)
+            else:
+                logger.warning(f"❌ No words received or empty response: words={words}")
+                self.send_message(chat_id, "ขออภัยครับ ตอนนี้ไม่สามารถดึงคำศัพท์ได้")
+            return
+            
+        elif text_lower in ['grammar', 'ไวยากรณ์', 'แกรมมาร์']:
+            logger.info(f"📖 Sending grammar lesson to user {chat_id}")
+            self.send_message(chat_id, "กำลังหาบทเรียนไวยากรณ์ให้... ⏳")
+            grammar_lesson = self.get_grammar_from_openrouter()
+            if grammar_lesson and grammar_lesson.strip():
+                formatted_message = f"📖 *บทเรียนไวยากรณ์*\n\n{grammar_lesson}\n\n💡 ลองฝึกใช้ไวยากรณ์นี้ดูนะครับ!"
+                self.send_message(chat_id, formatted_message)
+            else:
+                self.send_message(chat_id, "ขออภัยครับ ตอนนี้ไม่สามารถดึงบทเรียนไวยากรณ์ได้")
+            return
+            
+        elif text_lower in ['reset', 'รีเซ็ต']:
+            logger.info(f"🔄 Resetting session for user {chat_id}")
+            session['ready'] = False
+            session['reminder_sent'] = False
+            session['session_active'] = False
+            self.send_message(chat_id, "รีเซ็ตแล้ว! พิมพ์ 'พร้อม' เมื่อต้องการเริ่มใหม่")
+            return
+
         if not session['ready']:
             if text_lower in ['พร้อม', 'ready', 'yes']:
                 logger.info(f"✅ User {chat_id} is ready for vocabulary")
@@ -394,49 +448,7 @@ class VocabularyBot:
             # User is ready, handle additional interactions
             session['last_interaction'] = datetime.now()
             
-            if text_lower in ['help', 'ช่วย', 'คำสั่ง']:
-                logger.info(f"📋 Sending help to user {chat_id}")
-                help_text = """🤖 *คำสั่งที่ใช้ได้:*
-
-• `พร้อม` - เริ่มเรียนคำศัพท์
-• `help` - แสดงคำสั่งนี้  
-• `reset` - เริ่มใหม่
-• `new` - ขอคำศัพท์ใหม่
-• `grammar` - ขอบทเรียนไวยากรณ์
-• `stats` - ดูสถิติคำที่เรียนแล้ว
-• `clear` - ลบประวัติคำทั้งหมด
-
-📝 *วิธีใช้:* รอข้อความเตือน แล้วตอบ 'พร้อม' เพื่อรับคำศัพท์ประจำวัน"""
-                self.send_message(chat_id, help_text)
-                
-            elif text_lower in ['reset', 'รีเซ็ต']:
-                logger.info(f"🔄 Resetting session for user {chat_id}")
-                session['ready'] = False
-                session['reminder_sent'] = False
-                session['session_active'] = False
-                self.send_message(chat_id, "รีเซ็ตแล้ว! พิมพ์ 'พร้อม' เมื่อต้องการเริ่มใหม่")
-                
-            elif text_lower in ['new', 'ใหม่', 'คำใหม่']:
-                logger.info(f"🆕 Sending new vocabulary to user {chat_id}")
-                self.send_message(chat_id, "กำลังหาคำศัพท์ใหม่ให้... ⏳")
-                words = self.get_vocabulary_from_openrouter()
-                if words and words.strip():
-                    formatted_message = f"📚 *คำศัพท์ใหม่*\n\n{words}\n\n💡 ลองฝึกใช้คำเหล่านี้ดูนะครับ!"
-                    self.send_message(chat_id, formatted_message)
-                else:
-                    self.send_message(chat_id, "ขออภัยครับ ตอนนี้ไม่สามารถดึงคำศัพท์ได้")
-                    
-            elif text_lower in ['grammar', 'ไวยากรณ์', 'แกรมมาร์']:
-                logger.info(f"📖 Sending grammar lesson to user {chat_id}")
-                self.send_message(chat_id, "กำลังหาบทเรียนไวยากรณ์ให้... ⏳")
-                grammar_lesson = self.get_grammar_from_openrouter()
-                if grammar_lesson and grammar_lesson.strip():
-                    formatted_message = f"📖 *บทเรียนไวยากรณ์*\n\n{grammar_lesson}\n\n💡 ลองนำไวยากรณ์นี้ไปใช้ในการเขียนประโยคดูนะครับ!"
-                    self.send_message(chat_id, formatted_message)
-                else:
-                    self.send_message(chat_id, "ขออภัยครับ ตอนนี้ไม่สามารถดึงบทเรียนไวยากรณ์ได้")
-                    
-            elif text_lower in ['stats', 'สถิติ', 'ข้อมูล']:
+            if text_lower in ['stats', 'สถิติ', 'ข้อมูล']:
                 logger.info(f"📊 Sending statistics to user {chat_id}")
                 total_words = len(used_words)
                 recent_words = word_history[-5:] if word_history else []
@@ -600,16 +612,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-help_text = """🤖 *คำสั่งที่ใช้ได้:*
-
-• `พร้อม` - เริ่มเรียนคำศัพท์
-• `help` - แสดงคำสั่งนี้  
-• `reset` - เริ่มใหม่
-• `new` - ขอคำศัพท์ใหม่
-• `grammar` - ขอบทเรียนไวยากรณ์
-• `stats` - ดูสถิติคำที่เรียนแล้ว
-• `clear` - ลบประวัติคำทั้งหมด
-
-📝 *วิธีใช้:* 
-- รอข้อความเตือนตอน 3 ทุ่ม แล้วตอบ 'พร้อม' เพื่อรับคำศัพท์ประจำวัน"""
